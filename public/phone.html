@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OCR Bridge - Phone</title>
+  <style>
+    body { margin: 0; background: #000; color: #fff; font-family: sans-serif; }
+    video { width: 100vw; height: auto; display: block; }
+    .bar { padding: 12px; text-align: center; }
+    button { padding: 12px 24px; font-size: 18px; margin: 0 5px; }
+    .status { padding: 8px; text-align: center; font-size: 14px; color: #aaa; }
+  </style>
+</head>
+<body>
+  <video id="video" playsinline autoplay muted></video>
+  <div class="bar">
+    <button id="toggle">⏸️ Pause</button>
+    <button id="flip">🔄 Flip</button>
+  </div>
+  <div class="status" id="status">Starting camera…</div>
+
+  <script>
+    const video = document.getElementById('video');
+    const status = document.getElementById('status');
+    const toggleBtn = document.getElementById('toggle');
+    const flipBtn = document.getElementById('flip');
+
+    let ws, stream, running = true, facing = 'environment';
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function connectWS() {
+      ws = new WebSocket(`ws://${location.host}`);
+      ws.onopen = () => status.textContent = '🟢 Connected — scanning';
+      ws.onclose = () => { status.textContent = '🔴 Reconnecting…'; setTimeout(connectWS, 2000); };
+    }
+    connectWS();
+
+    async function startCamera() {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1280 } }
+      });
+      video.srcObject = stream;
+    }
+
+    async function captureLoop() {
+      if (running && ws && ws.readyState === 1 && video.videoWidth > 0) {
+        canvas.width = 800; // downscale for speed
+        canvas.height = Math.round(800 * video.videoHeight / video.videoWidth);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const base64 = dataUrl.split(',')[1];
+        ws.send(JSON.stringify({ type: 'frame', data: base64 }));
+      }
+      setTimeout(captureLoop, 1500); // ~1 frame / 1.5s — tune this
+    }
+
+    toggleBtn.onclick = () => {
+      running = !running;
+      toggleBtn.textContent = running ? '⏸️ Pause' : '▶️ Resume';
+      status.textContent = running ? '🟢 Scanning' : '⏸️ Paused';
+    };
+
+    flipBtn.onclick = async () => {
+      facing = facing === 'environment' ? 'user' : 'environment';
+      await startCamera();
+    };
+
+    (async () => {
+      await startCamera();
+      captureLoop();
+    })();
+  </script>
+</body>
+</html>

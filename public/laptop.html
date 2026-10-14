@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>OCR Bridge - Laptop</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: auto; }
+    .layout { display: flex; gap: 30px; flex-wrap: wrap; }
+    .left { flex: 1; min-width: 400px; }
+    .right { text-align: center; }
+    textarea { width: 100%; height: 300px; font-size: 16px; padding: 10px; box-sizing: border-box; }
+    button { padding: 10px 20px; margin-right: 10px; font-size: 16px; cursor: pointer; }
+    .status { color: #666; margin-bottom: 10px; }
+    #qr { margin: 10px auto; min-height: 240px; }
+    .url { font-family: monospace; font-size: 13px; color: #333; word-break: break-all; }
+    h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <h1>OCR Bridge</h1>
+  <div class="layout">
+    <div class="left">
+      <div class="status" id="status">Connecting…</div>
+      <textarea id="buffer" placeholder="Text from your phone will appear here..."></textarea>
+      <br/><br/>
+      <button onclick="copyText()">📋 Copy</button>
+      <button onclick="clearText()">🗑️ Clear</button>
+    </div>
+
+    <div class="right">
+      <h2>📱 Scan to open on phone</h2>
+      <div id="qr">generating…</div>
+      <div class="url" id="url"></div>
+    </div>
+  </div>
+
+  <script src="/qrcode.min.js"></script>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const status  = document.getElementById('status');
+      const buffer  = document.getElementById('buffer');
+      const qrDiv   = document.getElementById('qr');
+      const urlDiv  = document.getElementById('url');
+
+      // Ask the server for the real LAN URL instead of using location.host
+      fetch('/api/info')
+        .then(r => r.json())
+        .then(info => {
+          const phoneUrl = info.phoneUrl;
+          urlDiv.textContent = phoneUrl;
+          console.log('Phone URL:', phoneUrl);
+          console.log('QRCode type:', typeof QRCode);
+
+          if (typeof QRCode === 'undefined') {
+            qrDiv.textContent = 'QR library not loaded';
+            return;
+          }
+          try {
+            QRCode.toCanvas(phoneUrl, { width: 240, margin: 1 }, (err, canvas) => {
+              if (err) { qrDiv.textContent = 'QR error: ' + err.message; return; }
+              qrDiv.innerHTML = '';
+              qrDiv.appendChild(canvas);
+            });
+          } catch (e) {
+            qrDiv.textContent = 'QR threw: ' + e.message;
+          }
+        })
+        .catch(err => {
+          qrDiv.textContent = 'Could not load /api/info: ' + err.message;
+        });
+
+      // WebSocket — still connects to whatever host loaded the page
+      let ws;
+      function connect() {
+        ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+        ws.onopen = () => status.textContent = '🟢 Connected';
+        ws.onclose = () => { status.textContent = '🔴 Disconnected. Retrying…'; setTimeout(connect, 2000); };
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'buffer') buffer.value = msg.text;
+          } catch {}
+        };
+      }
+
+      window.copyText = () => {
+        navigator.clipboard.writeText(buffer.value).then(() => {
+          status.textContent = '✅ Copied!';
+          setTimeout(() => status.textContent = '🟢 Connected', 1200);
+        });
+      };
+      window.clearText = () => {
+        buffer.value = '';
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'clear' }));
+      };
+
+      connect();
+    });
+  </script>
+</body>
+</html>
