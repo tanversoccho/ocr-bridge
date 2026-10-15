@@ -1,0 +1,13 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --text: #20283f;
+  --muted: #606c86;
+  --border: #dce1ed;
+  --accent: #345cd4;
+  --on-accent: #ffffff;
+  --success: #27743c;
+  --hover: #edf1fb;
+  --overlay: rgba(20, 30, 55, .35);
+}

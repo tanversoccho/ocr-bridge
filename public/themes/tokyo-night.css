@@ -1,0 +1,14 @@
+/* Tokyo Night inspired palette. Reuse these tokens across project pages. */
+:root {
+  color-scheme: dark;
+  --bg: #16161e;
+  --surface: #1a1b26;
+  --text: #c0caf5;
+  --muted: #909bc0;
+  --border: #30354c;
+  --accent: #7aa2f7;
+  --on-accent: #16161e;
+  --success: #9ece6a;
+  --hover: #292e42;
+  --overlay: rgba(0, 0, 0, .55);
+}
