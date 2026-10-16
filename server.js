@@ -17,7 +17,7 @@ let worker = null;
 
 // Init Tesseract worker once
 (async () => {
-  worker = await Tesseract.createWorker('eng');
+  worker = await Tesseract.createWorker('eng+ben');
   console.log('OCR worker ready');
 })();
 
