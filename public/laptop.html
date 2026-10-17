@@ -1,116 +1,226 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OCR Bridge - Laptop</title>
-  <link rel="stylesheet" href="/app.css" />
-</head>
-<body>
-  <header class="toolbar">
-    <button id="menuButton" class="icon" aria-label="Open connection menu" aria-controls="menu" aria-expanded="false">☰</button>
-    <div class="brand">OCR Bridge <span>PHOTO TO TEXT</span></div>
-    <span id="status" class="connection" role="status" aria-live="polite">Connecting…</span>
-    <button id="fullscreen">Full screen</button>
-  </header>
-  <main>
-    <div class="editor-heading"><div><span class="eyebrow">WORKSPACE</span><h1>Recognized text</h1></div><span id="count">0 words · 0 characters</span></div>
-    <label class="sr-only" for="buffer">Recognized text, editable locally</label>
-    <textarea id="buffer" placeholder="Take a photo on your phone. Your recognized text will appear here…" spellcheck="false"></textarea>
-    <footer><span id="notice" role="status" aria-live="polite">Ready for your next photo</span><div><button id="clear">Clear</button><button id="copy" class="primary">Copy text</button></div></footer>
-  </main>
-  <div id="backdrop" hidden></div>
-  <aside id="menu" role="dialog" aria-modal="true" aria-labelledby="menuTitle" hidden>
-    <div class="drawer-heading"><h2 id="menuTitle">Connect your phone</h2><button id="closeMenu" class="icon" aria-label="Close menu">×</button></div>
-    <p>Use the same Wi-Fi network. Scan this code to open the photo capture page.</p>
-    <div id="qr">Loading QR code…</div>
-    <a id="url"></a>
-    <div class="theme-note"><span class="eyebrow">APPEARANCE</span><p>Theme colors load from <code>themes/current.css</code>. Import another theme there to change the design.</p></div>
-  </aside>
-  <script src="/qrcode.min.js"></script>
-  <script>
-    const $ = id => document.getElementById(id);
-    const buffer = $('buffer');
-    let ws;
-    function count() {
-      const text = buffer.value.trim();
-      $('count').textContent = `${text ? text.split(/\s+/u).length : 0} words · ${buffer.value.length} characters`;
-    }
-    buffer.addEventListener('input', count);
-    function setMenu(open) {
-      $('menu').hidden = $('backdrop').hidden = !open;
-      $('menuButton').setAttribute('aria-expanded', String(open));
-      (open ? $('closeMenu') : $('menuButton')).focus();
-    }
-    $('menuButton').onclick = () => setMenu($('menu').hidden);
-    $('closeMenu').onclick = $('backdrop').onclick = () => setMenu(false);
-    document.addEventListener('keydown', event => {
-      if ($('menu').hidden) return;
-      if (event.key === 'Escape') setMenu(false);
-      if (event.key === 'Tab') {
-        const items = [...$('menu').querySelectorAll('button, a[href]')];
-        const first = items[0], last = items[items.length - 1];
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  <head>
+    <meta charset="utf-8" />
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+        />
+    <title>OCR Bridge - Laptop</title>
+    <link
+        rel="stylesheet"
+        href="/app.css"
+        />
+  </head>
+  <body>
+    <header class="toolbar">
+      <button
+          id="menuButton"
+          class="icon"
+          aria-label="Open connection menu"
+          aria-controls="menu"
+          aria-expanded="false"
+          >
+          ☰
+      </button>
+        <div class="brand">OCR Bridge <span>PHOTO TO TEXT</span></div>
+        <span
+            id="status"
+            class="connection"
+            role="status"
+            aria-live="polite"
+            >Connecting…</span
+          >
+          <button id="fullscreen">Full screen</button>
+    </header>
+    <main>
+      <div class="editor-heading">
+        <div>
+          <span class="eyebrow">WORKSPACE</span>
+          <h1>Recognized text</h1>
+        </div>
+        <span id="count">0 words · 0 characters</span>
+      </div>
+      <label
+          class="sr-only"
+          for="buffer"
+          >Recognized text, editable locally</label
+        >
+        <textarea
+            id="buffer"
+            placeholder="Take a photo on your phone. Your recognized text will appear here…"
+            spellcheck="false"
+            ></textarea>
+        <footer>
+          <span
+              id="notice"
+              role="status"
+              aria-live="polite"
+              >Ready for your next photo</span
+            >
+            <div>
+              <button id="clear">Clear</button
+              ><button
+                   id="copy"
+                   class="primary"
+                   >
+                   Copy text
+                </button>
+            </div>
+        </footer>
+    </main>
+    <div
+        id="backdrop"
+        hidden
+        ></div>
+    <aside
+        id="menu"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="menuTitle"
+        hidden
+        >
+        <div class="drawer-heading">
+          <h2 id="menuTitle">Connect your phone</h2>
+          <button
+              id="closeMenu"
+              class="icon"
+              aria-label="Close menu"
+              >
+              ×
+          </button>
+        </div>
+        <p>Use the same Wi-Fi network. Scan this code to open the photo capture page.</p>
+        <div id="qr">Loading QR code…</div>
+        <a id="url"></a>
+        <div class="theme-note">
+          <span class="eyebrow">APPEARANCE</span>
+          <p>
+          Theme colors load from <code>themes/current.css</code>. Import another theme there to
+          change the design.
+          </p>
+        </div>
+    </aside>
+    <script src="/qrcode.min.js"></script>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const buffer = $("buffer");
+      let ws;
+      function count() {
+        const text = buffer.value.trim();
+        $("count").textContent =
+          `${text ? text.split(/\s+/u).length : 0} words · ${buffer.value.length} characters`;
       }
-    });
-    fetch('/api/info').then(response => {
-      if (!response.ok) throw new Error('Connection info unavailable');
-      return response.json();
-    }).then(info => {
-      const phoneUrl = new URL(info.phoneUrl);
-      if (!['http:', 'https:'].includes(phoneUrl.protocol)) throw new Error('Invalid phone URL');
-      $('url').textContent = phoneUrl.href; $('url').href = phoneUrl.href;
-      if (typeof QRCode === 'undefined') throw new Error('QR library not loaded. Use the phone link.');
-      QRCode.toCanvas(phoneUrl.href, { width: 240, margin: 2 }, (error, canvas) => {
-        if (error) { $('qr').textContent = 'Could not generate QR. Use the phone link.'; return; }
-        $('qr').replaceChildren(canvas);
-      });
-    }).catch(error => { $('qr').textContent = error.message; });
-    function connect() {
-      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
-      ws.onopen = () => { $('status').textContent = '● Connected'; $('status').dataset.connected = 'true'; };
-      ws.onclose = () => {
-        $('status').textContent = '● Reconnecting…'; $('status').dataset.connected = 'false';
-        setTimeout(connect, 2000);
-      };
-      ws.onmessage = event => {
-        try {
-          const message = JSON.parse(event.data);
-          if (message.type === 'buffer' && typeof message.text === 'string') {
-            buffer.value = message.text; count();
-            $('notice').textContent = message.text ? 'Text received from laptop OCR' : 'Ready for your next photo';
+      buffer.addEventListener("input", count);
+      function setMenu(open) {
+        $("menu").hidden = $("backdrop").hidden = !open;
+        $("menuButton").setAttribute("aria-expanded", String(open));
+        (open ? $("closeMenu") : $("menuButton")).focus();
+      }
+      $("menuButton").onclick = () => setMenu($("menu").hidden);
+      $("closeMenu").onclick = $("backdrop").onclick = () => setMenu(false);
+      document.addEventListener("keydown", (event) => {
+        if ($("menu").hidden) return;
+        if (event.key === "Escape") setMenu(false);
+        if (event.key === "Tab") {
+          const items = [...$("menu").querySelectorAll("button, a[href]")];
+          const first = items[0],
+            last = items[items.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
           }
-        } catch {}
+        }
+      });
+      fetch("/api/info")
+        .then((response) => {
+          if (!response.ok) throw new Error("Connection info unavailable");
+          return response.json();
+        })
+        .then((info) => {
+          const phoneUrl = new URL(info.phoneUrl);
+          if (!["http:", "https:"].includes(phoneUrl.protocol))
+            throw new Error("Invalid phone URL");
+          $("url").textContent = phoneUrl.href;
+          $("url").href = phoneUrl.href;
+          if (typeof QRCode === "undefined")
+            throw new Error("QR library not loaded. Use the phone link.");
+          QRCode.toCanvas(phoneUrl.href, { width: 240, margin: 2 }, (error, canvas) => {
+            if (error) {
+              $("qr").textContent = "Could not generate QR. Use the phone link.";
+              return;
+            }
+            $("qr").replaceChildren(canvas);
+          });
+        })
+        .catch((error) => {
+          $("qr").textContent = error.message;
+        });
+      function connect() {
+        ws = new WebSocket(`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}`);
+        ws.onopen = () => {
+          $("status").textContent = "● Connected";
+          $("status").dataset.connected = "true";
+        };
+        ws.onclose = () => {
+          $("status").textContent = "● Reconnecting…";
+          $("status").dataset.connected = "false";
+          setTimeout(connect, 2000);
+        };
+        ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message.type === "buffer" && typeof message.text === "string") {
+              buffer.value = message.text;
+              count();
+              $("notice").textContent = message.text
+                ? "Text received from laptop OCR"
+                : "Ready for your next photo";
+            }
+          } catch {}
+        };
+      }
+      $("copy").onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(buffer.value);
+          $("notice").textContent = "Text copied";
+        } catch {
+          buffer.focus();
+          buffer.select();
+          $("notice").textContent = "Text selected. Press Ctrl+C (or Command+C) to copy.";
+        }
       };
-    }
-    $('copy').onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(buffer.value);
-        $('notice').textContent = 'Text copied';
-      } catch {
-        buffer.focus(); buffer.select();
-        $('notice').textContent = 'Text selected. Press Ctrl+C (or Command+C) to copy.';
-      }
-    };
-    $('clear').onclick = () => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        $('notice').textContent = 'Reconnect before clearing the shared text.'; return;
-      }
-      ws.send(JSON.stringify({ type: 'clear' })); buffer.value = ''; count();
-      $('notice').textContent = 'Text cleared';
-    };
-    $('fullscreen').onclick = async () => {
-      try {
-        if (document.fullscreenElement) await document.exitFullscreen();
-        else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
-        else $('notice').textContent = 'Use your browser’s full screen command.';
-      } catch { $('notice').textContent = 'Full screen unavailable. Use your browser’s full screen command.'; }
-    };
-    document.addEventListener('fullscreenchange', () => {
-      $('fullscreen').textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen';
-    });
-    count(); connect();
-  </script>
-</body>
+      $("clear").onclick = () => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          $("notice").textContent = "Reconnect before clearing the shared text.";
+          return;
+        }
+        ws.send(JSON.stringify({ type: "clear" }));
+        buffer.value = "";
+        count();
+        $("notice").textContent = "Text cleared";
+      };
+      $("fullscreen").onclick = async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else if (document.documentElement.requestFullscreen)
+            await document.documentElement.requestFullscreen();
+          else $("notice").textContent = "Use your browser’s full screen command.";
+        } catch {
+          $("notice").textContent =
+            "Full screen unavailable. Use your browser’s full screen command.";
+        }
+      };
+      document.addEventListener("fullscreenchange", () => {
+        $("fullscreen").textContent = document.fullscreenElement
+          ? "Exit full screen"
+          : "Full screen";
+      });
+      count();
+      connect();
+    </script>
+  </body>
 </html>

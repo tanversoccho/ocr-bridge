@@ -1,4 +1,4 @@
 /* Theme entry point. Switch to './light.css', or import your own token file.
    Custom themes must define the same --variables as tokyo-night.css.
    Layout stays in app.css; no HTML changes are needed to switch colors. */
-@import url('./tokyo-night.css');
+@import url("./tokyo-night.css");

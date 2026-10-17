@@ -23,7 +23,7 @@ let worker = null;
 
 function broadcast(data) {
   const msg = JSON.stringify(data);
-  wss.clients.forEach(c => {
+  wss.clients.forEach((c) => {
     if (c.readyState === 1) c.send(msg);
   });
 }
@@ -34,13 +34,19 @@ wss.on('connection', (ws) => {
 
   ws.on('message', async (raw) => {
     let msg;
-    try { msg = JSON.parse(raw); } catch { return; }
+    try {
+      msg = JSON.parse(raw);
+    } catch {
+      return;
+    }
 
     if (msg.type === 'frame') {
       if (!worker) return;
       try {
         const buf = Buffer.from(msg.data, 'base64');
-        const { data: { text } } = await worker.recognize(buf);
+        const {
+          data: { text },
+        } = await worker.recognize(buf);
         const cleaned = text.replace(/\s+/g, ' ').trim();
         if (cleaned.length > 2) {
           sharedText = cleaned;
@@ -83,7 +89,7 @@ app.get('/api/info', (req, res) => {
     ip: LOCAL_IP,
     port: PORT,
     phoneUrl: `http://${LOCAL_IP}:${PORT}/phone.html`,
-    laptopUrl: `http://${LOCAL_IP}:${PORT}/laptop.html`
+    laptopUrl: `http://${LOCAL_IP}:${PORT}/laptop.html`,
   });
 });
 
