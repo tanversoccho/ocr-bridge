@@ -1,162 +1,324 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
     <title>OCR Bridge - Phone</title>
     <style>
-* { box-sizing: border-box; }
-body { margin: 0; background: #111; color: #fff; font-family: sans-serif; padding: 16px; }
-main { max-width: 720px; margin: auto; }
-h1 { font-size: 24px; }
-button { padding: 12px 18px; font-size: 16px; margin: 4px; border: 0; border-radius: 8px; cursor: pointer; }
-button:disabled { opacity: .45; cursor: default; }
-#send { background: #83e2a1; }
-canvas { display: block; max-width: 100%; height: auto; margin: 12px auto; touch-action: none; }
-[hidden] { display: none !important; }
-.status, p { color: #ccc; line-height: 1.5; }
-label { display: block; margin: 10px 0; }
-input[type=range] { width: 100%; }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #111;
+        color: #fff;
+        font-family: sans-serif;
+        padding: 16px;
+      }
+      main {
+        max-width: 720px;
+        margin: auto;
+      }
+      h1 {
+        font-size: 24px;
+      }
+      button {
+        padding: 12px 18px;
+        font-size: 16px;
+        margin: 4px;
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      #send {
+        background: #83e2a1;
+      }
+      canvas {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 12px auto;
+        touch-action: none;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .status,
+      p {
+        color: #ccc;
+        line-height: 1.5;
+      }
+      label {
+        display: block;
+        margin: 10px 0;
+      }
+      input[type="range"] {
+        width: 100%;
+      }
     </style>
   </head>
   <body>
     <main>
       <h1>Photo OCR</h1>
       <p>Take a photo, crop the text area, then send it to your laptop.</p>
-      <input id="photo" type="file" accept="image/*" capture="environment" hidden />
+      <input
+        id="photo"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+      />
       <button id="take">Take photo / Retake</button>
-      <div id="editor" hidden>
+      <div
+        id="editor"
+        hidden
+      >
         <p>Drag across the photo to select a crop, or adjust the edges below.</p>
-        <canvas id="crop" aria-label="Photo crop selection"></canvas>
-        <label>Left edge <input id="left" type="range" min="0" max="99" value="0" /></label>
-        <label>Right edge <input id="right" type="range" min="1" max="100" value="100" /></label>
-        <label>Top edge <input id="top" type="range" min="0" max="99" value="0" /></label>
-        <label>Bottom edge <input id="bottom" type="range" min="1" max="100" value="100" /></label>
+        <canvas
+          id="crop"
+          aria-label="Photo crop selection"
+        ></canvas>
+        <label
+          >Left edge
+          <input
+            id="left"
+            type="range"
+            min="0"
+            max="99"
+            value="0"
+        /></label>
+        <label
+          >Right edge
+          <input
+            id="right"
+            type="range"
+            min="1"
+            max="100"
+            value="100"
+        /></label>
+        <label
+          >Top edge
+          <input
+            id="top"
+            type="range"
+            min="0"
+            max="99"
+            value="0"
+        /></label>
+        <label
+          >Bottom edge
+          <input
+            id="bottom"
+            type="range"
+            min="1"
+            max="100"
+            value="100"
+        /></label>
         <button id="reset">Reset crop</button>
         <button id="previewButton">Preview crop</button>
-        <canvas id="preview" aria-label="Cropped photo preview" hidden></canvas>
-        <button id="send" disabled>Send picture</button>
+        <canvas
+          id="preview"
+          aria-label="Cropped photo preview"
+          hidden
+        ></canvas>
+        <button
+          id="send"
+          disabled
+        >
+          Send picture
+        </button>
       </div>
-      <p id="status" class="status" role="status" aria-live="polite">Connecting to laptop…</p>
+      <p
+        id="status"
+        class="status"
+        role="status"
+        aria-live="polite"
+      >
+        Connecting to laptop…
+      </p>
     </main>
     <script>
-      const $ = id => document.getElementById(id);
-      const photo = $('photo'), crop = $('crop'), preview = $('preview');
-      const ctx = crop.getContext('2d');
-      const edges = ['left', 'right', 'top', 'bottom'];
-      const source = document.createElement('canvas');
-      let ws, hasPhoto = false, sent = false, loading = false, anchor = null;
-      const say = text => { $('status').textContent = text; };
+      const $ = (id) => document.getElementById(id);
+      const photo = $("photo"),
+        crop = $("crop"),
+        preview = $("preview");
+      const ctx = crop.getContext("2d");
+      const edges = ["left", "right", "top", "bottom"];
+      const source = document.createElement("canvas");
+      let ws,
+        hasPhoto = false,
+        sent = false,
+        loading = false,
+        anchor = null;
+      const say = (text) => {
+        $("status").textContent = text;
+      };
       function updateSend() {
-        $('send').disabled = !hasPhoto || sent || loading || !ws || ws.readyState !== WebSocket.OPEN;
+        $("send").disabled =
+          !hasPhoto || sent || loading || !ws || ws.readyState !== WebSocket.OPEN;
       }
       function connectWS() {
-        ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
+        ws = new WebSocket(`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}`);
         ws.onopen = () => {
           updateSend();
-          say(sent ? 'Reconnected. Check the laptop for the previous result.' : 'Connected. Take a photo or send your crop.');
+          say(
+            sent
+              ? "Reconnected. Check the laptop for the previous result."
+              : "Connected. Take a photo or send your crop.",
+          );
         };
         ws.onclose = () => {
           updateSend();
-          say('Disconnected. Your photo is kept here. Reconnecting…');
+          say("Disconnected. Your photo is kept here. Reconnecting…");
           setTimeout(connectWS, 2000);
         };
-        ws.onerror = () => say('Connection problem. Check that the laptop server is running.');
+        ws.onerror = () => say("Connection problem. Check that the laptop server is running.");
       }
       function selection() {
-        return Object.fromEntries(edges.map(id => [id, Number($(id).value) / 100]));
+        return Object.fromEntries(edges.map((id) => [id, Number($(id).value) / 100]));
       }
       function draw() {
         if (!hasPhoto) return;
         ctx.drawImage(source, 0, 0, crop.width, crop.height);
         const s = selection();
-        const x = s.left * crop.width, y = s.top * crop.height;
-        const w = (s.right - s.left) * crop.width, h = (s.bottom - s.top) * crop.height;
-        ctx.fillStyle = 'rgba(0,0,0,.6)';
+        const x = s.left * crop.width,
+          y = s.top * crop.height;
+        const w = (s.right - s.left) * crop.width,
+          h = (s.bottom - s.top) * crop.height;
+        ctx.fillStyle = "rgba(0,0,0,.6)";
         ctx.fillRect(0, 0, crop.width, crop.height);
-        ctx.drawImage(source, s.left * source.width, s.top * source.height,
-          (s.right - s.left) * source.width, (s.bottom - s.top) * source.height, x, y, w, h);
-        ctx.strokeStyle = '#83e2a1'; ctx.lineWidth = 3;
+        ctx.drawImage(
+          source,
+          s.left * source.width,
+          s.top * source.height,
+          (s.right - s.left) * source.width,
+          (s.bottom - s.top) * source.height,
+          x,
+          y,
+          w,
+          h,
+        );
+        ctx.strokeStyle = "#83e2a1";
+        ctx.lineWidth = 3;
         ctx.strokeRect(x, y, w, h);
         preview.hidden = true;
         sent = false;
         updateSend();
       }
       function reset() {
-        for (const id of edges) $(id).value = id === 'right' || id === 'bottom' ? 100 : 0;
+        for (const id of edges) $(id).value = id === "right" || id === "bottom" ? 100 : 0;
         draw();
       }
-      $('take').onclick = () => { photo.value = ''; photo.click(); };
+      $("take").onclick = () => {
+        photo.value = "";
+        photo.click();
+      };
       photo.onchange = async () => {
         const file = photo.files[0];
         if (!file) return;
-        loading = true; updateSend(); say('Opening photo…');
+        loading = true;
+        updateSend();
+        say("Opening photo…");
         const url = URL.createObjectURL(file);
         try {
-          const image = new Image(); image.src = url;
+          const image = new Image();
+          image.src = url;
           await image.decode();
           // Retain detail for OCR while limiting phone memory and message size.
           const scale = Math.min(1, 2400 / Math.max(image.naturalWidth, image.naturalHeight));
           source.width = Math.max(1, Math.round(image.naturalWidth * scale));
           source.height = Math.max(1, Math.round(image.naturalHeight * scale));
-          source.getContext('2d').drawImage(image, 0, 0, source.width, source.height);
+          source.getContext("2d").drawImage(image, 0, 0, source.width, source.height);
           crop.width = Math.min(900, source.width);
-          crop.height = Math.max(1, Math.round(source.height * crop.width / source.width));
-          hasPhoto = true; $('editor').hidden = false; reset();
-          say('Photo ready. Select the text area, preview it, then send.');
+          crop.height = Math.max(1, Math.round((source.height * crop.width) / source.width));
+          hasPhoto = true;
+          $("editor").hidden = false;
+          reset();
+          say("Photo ready. Select the text area, preview it, then send.");
         } catch (error) {
-          say('Could not open this photo. Try a JPEG or PNG photo.');
+          say("Could not open this photo. Try a JPEG or PNG photo.");
         } finally {
-          URL.revokeObjectURL(url); loading = false; updateSend();
+          URL.revokeObjectURL(url);
+          loading = false;
+          updateSend();
         }
       };
-      for (const id of edges) $(id).oninput = () => {
-        if (id === 'left') $('left').value = Math.min(+$('left').value, +$('right').value - 1);
-        if (id === 'right') $('right').value = Math.max(+$('right').value, +$('left').value + 1);
-        if (id === 'top') $('top').value = Math.min(+$('top').value, +$('bottom').value - 1);
-        if (id === 'bottom') $('bottom').value = Math.max(+$('bottom').value, +$('top').value + 1);
-        draw();
-      };
+      for (const id of edges)
+        $(id).oninput = () => {
+          if (id === "left") $("left").value = Math.min(+$("left").value, +$("right").value - 1);
+          if (id === "right") $("right").value = Math.max(+$("right").value, +$("left").value + 1);
+          if (id === "top") $("top").value = Math.min(+$("top").value, +$("bottom").value - 1);
+          if (id === "bottom")
+            $("bottom").value = Math.max(+$("bottom").value, +$("top").value + 1);
+          draw();
+        };
       function point(event) {
         const r = crop.getBoundingClientRect();
-        return { x: Math.max(0, Math.min(100, (event.clientX - r.left) / r.width * 100)),
-          y: Math.max(0, Math.min(100, (event.clientY - r.top) / r.height * 100)) };
+        return {
+          x: Math.max(0, Math.min(100, ((event.clientX - r.left) / r.width) * 100)),
+          y: Math.max(0, Math.min(100, ((event.clientY - r.top) / r.height) * 100)),
+        };
       }
-      crop.onpointerdown = event => {
+      crop.onpointerdown = (event) => {
         if (!hasPhoto || loading) return;
-        anchor = point(event); crop.setPointerCapture(event.pointerId);
+        anchor = point(event);
+        crop.setPointerCapture(event.pointerId);
       };
-      crop.onpointermove = event => {
+      crop.onpointermove = (event) => {
         if (!anchor) return;
         const p = point(event);
-        $('left').value = Math.min(99, Math.floor(Math.min(anchor.x, p.x)));
-        $('right').value = Math.min(100, Math.max(+$('left').value + 1, Math.ceil(Math.max(anchor.x, p.x))));
-        $('top').value = Math.min(99, Math.floor(Math.min(anchor.y, p.y)));
-        $('bottom').value = Math.min(100, Math.max(+$('top').value + 1, Math.ceil(Math.max(anchor.y, p.y))));
+        $("left").value = Math.min(99, Math.floor(Math.min(anchor.x, p.x)));
+        $("right").value = Math.min(
+          100,
+          Math.max(+$("left").value + 1, Math.ceil(Math.max(anchor.x, p.x))),
+        );
+        $("top").value = Math.min(99, Math.floor(Math.min(anchor.y, p.y)));
+        $("bottom").value = Math.min(
+          100,
+          Math.max(+$("top").value + 1, Math.ceil(Math.max(anchor.y, p.y))),
+        );
         draw();
       };
-      crop.onpointerup = crop.onpointercancel = crop.onlostpointercapture = () => { anchor = null; };
+      crop.onpointerup =
+        crop.onpointercancel =
+        crop.onlostpointercapture =
+          () => {
+            anchor = null;
+          };
       function makeCrop() {
         const s = selection();
-        const x = Math.floor(s.left * source.width), y = Math.floor(s.top * source.height);
+        const x = Math.floor(s.left * source.width),
+          y = Math.floor(s.top * source.height);
         const w = Math.max(1, Math.round(s.right * source.width) - x);
         const h = Math.max(1, Math.round(s.bottom * source.height) - y);
-        preview.width = w; preview.height = h;
-        preview.getContext('2d').drawImage(source, x, y, w, h, 0, 0, w, h);
+        preview.width = w;
+        preview.height = h;
+        preview.getContext("2d").drawImage(source, x, y, w, h, 0, 0, w, h);
         preview.hidden = false;
       }
-      $('reset').onclick = reset;
-      $('previewButton').onclick = makeCrop;
-      $('send').onclick = () => {
-        if ($('send').disabled) return;
+      $("reset").onclick = reset;
+      $("previewButton").onclick = makeCrop;
+      $("send").onclick = () => {
+        if ($("send").disabled) return;
         try {
           makeCrop();
-          const base64 = preview.toDataURL('image/jpeg', .92).split(',')[1];
-          ws.send(JSON.stringify({ type: 'frame', data: base64 }));
-          sent = true; updateSend();
-          say('Picture sent for OCR. Check the laptop for text. Retake or adjust the crop to send another.');
+          const base64 = preview.toDataURL("image/jpeg", 0.92).split(",")[1];
+          ws.send(JSON.stringify({ type: "frame", data: base64 }));
+          sent = true;
+          updateSend();
+          say(
+            "Picture sent for OCR. Check the laptop for text. Retake or adjust the crop to send another.",
+          );
         } catch (error) {
-          say('Could not send. Check the connection and try again.'); updateSend();
+          say("Could not send. Check the connection and try again.");
+          updateSend();
         }
       };
       connectWS();

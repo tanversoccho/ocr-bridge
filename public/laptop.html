@@ -3,35 +3,35 @@
   <head>
     <meta charset="utf-8" />
     <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-        />
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
     <title>OCR Bridge - Laptop</title>
     <link
-        rel="stylesheet"
-        href="/app.css"
-        />
+      rel="stylesheet"
+      href="/app.css"
+    />
   </head>
   <body>
     <header class="toolbar">
       <button
-          id="menuButton"
-          class="icon"
-          aria-label="Open connection menu"
-          aria-controls="menu"
-          aria-expanded="false"
-          >
-          ☰
+        id="menuButton"
+        class="icon"
+        aria-label="Open connection menu"
+        aria-controls="menu"
+        aria-expanded="false"
+      >
+        ☰
       </button>
-        <div class="brand">OCR Bridge <span>PHOTO TO TEXT</span></div>
-        <span
-            id="status"
-            class="connection"
-            role="status"
-            aria-live="polite"
-            >Connecting…</span
-          >
-          <button id="fullscreen">Full screen</button>
+      <div class="brand">OCR Bridge <span>PHOTO TO TEXT</span></div>
+      <span
+        id="status"
+        class="connection"
+        role="status"
+        aria-live="polite"
+        >Connecting…</span
+      >
+      <button id="fullscreen">Full screen</button>
     </header>
     <main>
       <div class="editor-heading">
@@ -42,64 +42,64 @@
         <span id="count">0 words · 0 characters</span>
       </div>
       <label
-          class="sr-only"
-          for="buffer"
-          >Recognized text, editable locally</label
+        class="sr-only"
+        for="buffer"
+        >Recognized text, editable locally</label
+      >
+      <textarea
+        id="buffer"
+        placeholder="Take a photo on your phone. Your recognized text will appear here…"
+        spellcheck="false"
+      ></textarea>
+      <footer>
+        <span
+          id="notice"
+          role="status"
+          aria-live="polite"
+          >Ready for your next photo</span
         >
-        <textarea
-            id="buffer"
-            placeholder="Take a photo on your phone. Your recognized text will appear here…"
-            spellcheck="false"
-            ></textarea>
-        <footer>
-          <span
-              id="notice"
-              role="status"
-              aria-live="polite"
-              >Ready for your next photo</span
-            >
-            <div>
-              <button id="clear">Clear</button
-              ><button
-                   id="copy"
-                   class="primary"
-                   >
-                   Copy text
-                </button>
-            </div>
-        </footer>
-    </main>
-    <div
-        id="backdrop"
-        hidden
-        ></div>
-    <aside
-        id="menu"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="menuTitle"
-        hidden
-        >
-        <div class="drawer-heading">
-          <h2 id="menuTitle">Connect your phone</h2>
-          <button
-              id="closeMenu"
-              class="icon"
-              aria-label="Close menu"
-              >
-              ×
+        <div>
+          <button id="clear">Clear</button
+          ><button
+            id="copy"
+            class="primary"
+          >
+            Copy text
           </button>
         </div>
-        <p>Use the same Wi-Fi network. Scan this code to open the photo capture page.</p>
-        <div id="qr">Loading QR code…</div>
-        <a id="url"></a>
-        <div class="theme-note">
-          <span class="eyebrow">APPEARANCE</span>
-          <p>
+      </footer>
+    </main>
+    <div
+      id="backdrop"
+      hidden
+    ></div>
+    <aside
+      id="menu"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="menuTitle"
+      hidden
+    >
+      <div class="drawer-heading">
+        <h2 id="menuTitle">Connect your phone</h2>
+        <button
+          id="closeMenu"
+          class="icon"
+          aria-label="Close menu"
+        >
+          ×
+        </button>
+      </div>
+      <p>Use the same Wi-Fi network. Scan this code to open the photo capture page.</p>
+      <div id="qr">Loading QR code…</div>
+      <a id="url"></a>
+      <div class="theme-note">
+        <span class="eyebrow">APPEARANCE</span>
+        <p>
           Theme colors load from <code>themes/current.css</code>. Import another theme there to
           change the design.
-          </p>
-        </div>
+        </p>
+      </div>
     </aside>
     <script src="/qrcode.min.js"></script>
     <script>
