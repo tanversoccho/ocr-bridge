@@ -122,7 +122,30 @@
             value="100"
         /></label>
         <button id="reset">Reset crop</button>
-        <button id="previewButton">Preview crop</button>
+        <label>Enhancement filter
+          <select id="filter">
+            <option value="original">Original (no filter)</option>
+            <option value="auto">Auto contrast</option>
+            <option value="gray">Grayscale</option>
+            <option value="sharp">Light sharpening + contrast</option>
+            <option value="bw">Black and white</option>
+            <option value="adaptive">Adaptive black and white</option>
+            <option value="invert">Invert colors</option>
+          </select>
+        </label>
+        <label>Rotate / straighten
+          <select id="rotation">
+            <option value="0">0°</option><option value="-12">-12°</option>
+            <option value="-6">-6°</option><option value="6">6°</option>
+            <option value="12">12°</option><option value="90">90°</option>
+            <option value="180">180°</option><option value="270">270°</option>
+          </select>
+        </label>
+        <button id="straighten">Estimate tilt</button>
+        <button id="resetEnhance">Reset enhancement</button>
+        <button id="stopEnhance" hidden>Stop enhancement</button>
+        <p id="enhanceStatus" role="status" aria-live="polite">Original photo selected. Preview before sending.</p>
+        <button id="previewButton">Preview enhanced crop</button>
         <canvas
           id="preview"
           aria-label="Cropped photo preview"
@@ -144,6 +167,7 @@
         Connecting to laptop…
       </p>
     </main>
+    <script src="/photo-filters.js"></script>
     <script>
       const $ = (id) => document.getElementById(id);
       const photo = $("photo"),
@@ -160,9 +184,12 @@
       const say = (text) => {
         $("status").textContent = text;
       };
+      let enhanceWorker = null, enhancementBusy = false, enhancementReject = null;
       function updateSend() {
         $("send").disabled =
-          !hasPhoto || sent || loading || !ws || ws.readyState !== WebSocket.OPEN;
+          !hasPhoto || sent || loading || enhancementBusy || !ws || ws.readyState !== WebSocket.OPEN;
+        for (const id of ["take", "reset", "filter", "rotation", "straighten", "previewButton", "resetEnhance", ...edges]) $(id).disabled = enhancementBusy;
+        $("stopEnhance").hidden = !enhancementBusy;
       }
       function connectWS() {
         ws = new WebSocket(`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}`);
@@ -223,6 +250,7 @@
       photo.onchange = async () => {
         const file = photo.files[0];
         if (!file) return;
+        if (file.size > 20 * 1024 * 1024) { say("Choose a photo below 20 MB."); return; }
         loading = true;
         updateSend();
         say("Opening photo…");
@@ -238,6 +266,7 @@
           source.getContext("2d").drawImage(image, 0, 0, source.width, source.height);
           crop.width = Math.min(900, source.width);
           crop.height = Math.max(1, Math.round((source.height * crop.width) / source.width));
+          $("filter").value = "original"; $("rotation").value = "0";
           hasPhoto = true;
           $("editor").hidden = false;
           reset();
@@ -267,12 +296,12 @@
         };
       }
       crop.onpointerdown = (event) => {
-        if (!hasPhoto || loading) return;
+        if (!hasPhoto || loading || enhancementBusy) return;
         anchor = point(event);
         crop.setPointerCapture(event.pointerId);
       };
       crop.onpointermove = (event) => {
-        if (!anchor) return;
+        if (!anchor || enhancementBusy) return;
         const p = point(event);
         $("left").value = Math.min(99, Math.floor(Math.min(anchor.x, p.x)));
         $("right").value = Math.min(
@@ -292,34 +321,74 @@
           () => {
             anchor = null;
           };
-      function makeCrop() {
-        const s = selection();
-        const x = Math.floor(s.left * source.width),
-          y = Math.floor(s.top * source.height);
-        const w = Math.max(1, Math.round(s.right * source.width) - x);
-        const h = Math.max(1, Math.round(s.bottom * source.height) - y);
-        preview.width = w;
-        preview.height = h;
-        preview.getContext("2d").drawImage(source, x, y, w, h, 0, 0, w, h);
-        preview.hidden = false;
+      const enhancementStatus = text => { $("enhanceStatus").textContent = text; };
+      function rawCrop(straighten = false) {
+        const s = selection(), x = Math.floor(s.left * source.width), y = Math.floor(s.top * source.height);
+        const w = Math.max(1, Math.round(s.right * source.width) - x), h = Math.max(1, Math.round(s.bottom * source.height) - y);
+        const canvas = document.createElement('canvas');
+        const limit = $("filter").value === "original" && !straighten ? 2400 : 1800;
+        const scale = Math.min(1, limit / Math.max(w, h));
+        canvas.width = Math.max(1, Math.round(w * scale)); canvas.height = Math.max(1, Math.round(h * scale));
+        const cropContext = canvas.getContext('2d');
+        cropContext.fillStyle = '#fff'; cropContext.fillRect(0, 0, canvas.width, canvas.height);
+        cropContext.drawImage(source, x, y, w, h, 0, 0, canvas.width, canvas.height);
+        return canvas;
       }
+      function processPixels(canvas, straighten) {
+        const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+        const filter = $("filter").value;
+        if (filter === 'original' && !straighten) return Promise.resolve({ width: data.width, height: data.height, rgba: data.data.buffer, angle: null });
+        if (!window.Worker) return Promise.reject(new Error('Enhancement requires a browser with Web Workers. Select Original to send without a filter.'));
+        return new Promise((resolve, reject) => {
+          enhancementReject = reject;
+          enhanceWorker = new Worker('/photo-enhance-worker.js');
+          enhanceWorker.onmessage = event => event.data.error ? reject(new Error(event.data.error)) : resolve(event.data);
+          enhanceWorker.onerror = () => reject(new Error('Could not load filters. Refresh the phone page or select Original.'));
+          enhanceWorker.postMessage({ rgba: data.data.buffer, width: data.width, height: data.height, filter, straighten }, [data.data.buffer]);
+        });
+      }
+      async function makeCrop(straighten = false) {
+        if (!hasPhoto || enhancementBusy) return false;
+        enhancementBusy = true; updateSend(); enhancementStatus('Enhancing crop on this phone…');
+        try {
+          const result = await processPixels(rawCrop(straighten), straighten);
+          if (straighten && result.angle !== null) {
+            const angle = result.angle;
+            let option = [...$("rotation").options].find(item => +item.value === angle);
+            if (!option) { option = new Option(angle + '° (estimated)', String(angle)); $("rotation").add(option); }
+            $("rotation").value = String(angle);
+          }
+          const image = document.createElement('canvas'); image.width = result.width; image.height = result.height;
+          image.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(result.rgba), result.width, result.height), 0, 0);
+          const rad = Number($("rotation").value) * Math.PI / 180, pad = 16;
+          preview.width = Math.ceil(Math.abs(image.width * Math.cos(rad)) + Math.abs(image.height * Math.sin(rad))) + pad * 2;
+          preview.height = Math.ceil(Math.abs(image.width * Math.sin(rad)) + Math.abs(image.height * Math.cos(rad))) + pad * 2;
+          const output = preview.getContext('2d'); output.fillStyle = '#fff'; output.fillRect(0, 0, preview.width, preview.height);
+          output.translate(preview.width / 2, preview.height / 2); output.rotate(rad); output.drawImage(image, -image.width / 2, -image.height / 2);
+          preview.hidden = false; sent = false;
+          enhancementStatus(straighten ? 'Tilt estimated. Check the preview; use rotation to correct it if needed.' : 'Preview ready. This exact enhanced crop will be sent for OCR.');
+          return true;
+        } catch (error) { enhancementStatus(error.message); return false; }
+        finally { enhanceWorker?.terminate(); enhanceWorker = null; enhancementReject = null; enhancementBusy = false; updateSend(); }
+      }
+      $("stopEnhance").onclick = () => {
+        enhanceWorker?.terminate(); enhancementReject?.(new Error('Enhancement stopped. Original photo and crop are kept.'));
+      };
+      function invalidateEnhancement() { preview.hidden = true; sent = false; updateSend(); enhancementStatus('Settings changed. Preview the crop before sending.'); }
+      $("filter").onchange = $("rotation").onchange = invalidateEnhancement;
+      $("resetEnhance").onclick = () => { $("filter").value = 'original'; $("rotation").value = '0'; invalidateEnhancement(); };
+      $("straighten").onclick = () => makeCrop(true);
       $("reset").onclick = reset;
-      $("previewButton").onclick = makeCrop;
-      $("send").onclick = () => {
+      $("previewButton").onclick = () => makeCrop(false);
+      $("send").onclick = async () => {
         if ($("send").disabled) return;
         try {
-          makeCrop();
-          const base64 = preview.toDataURL("image/jpeg", 0.92).split(",")[1];
-          ws.send(JSON.stringify({ type: "frame", data: base64 }));
-          sent = true;
-          updateSend();
-          say(
-            "Picture sent for OCR. Check the laptop for text. Retake or adjust the crop to send another.",
-          );
-        } catch (error) {
-          say("Could not send. Check the connection and try again.");
-          updateSend();
-        }
+          if (preview.hidden && !await makeCrop(false)) return;
+          if (!ws || ws.readyState !== WebSocket.OPEN) { say('Disconnected. Reconnect before sending. Your photo is kept.'); return; }
+          const base64 = preview.toDataURL('image/jpeg', 0.92).split(',')[1];
+          ws.send(JSON.stringify({ type: 'frame', data: base64 }));
+          sent = true; updateSend(); say('Enhanced picture sent for OCR. Check the laptop for text.');
+        } catch (error) { say('Could not send. Check the connection and try again.'); updateSend(); }
       };
       connectWS();
     </script>

@@ -108,3 +108,8 @@ If a patch check fails, share the error and the current contents of the affected
 ## Verification status
 
 This README was checked against the supplied source text. The application has not been run or tested with a physical phone in this workspace.
+
+
+## Photo enhancement
+
+See [PHOTO_ENHANCEMENT.md](PHOTO_ENHANCEMENT.md) for the single phone photo-to-text workflow, optional filters, preview, setup and tests. Barcode scanning is not part of this version.

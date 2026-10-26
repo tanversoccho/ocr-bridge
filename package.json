@@ -3,11 +3,15 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "ws": "^8.17.0",
     "tesseract.js": "^5.0.5"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "1.0.13"
   }
 }
